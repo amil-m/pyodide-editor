@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Python Editor</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                overflow: hidden;
+            }
+
+            .container {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+            }
+
+            .header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 8px;
+                background-color: #2d2d2d;
+                border-bottom: 1px solid #3e3e3e;
+            }
+
+            .title {
+                font-size: 20px;
+                font-weight: bold;
+                color: white;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .button {
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-weight: 500;
+                border: none;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            }
+
+            .button-enabled {
+                background-color: #16a34a;
+                color: white;
+            }
+
+            .button-enabled:hover {
+                background-color: #15803d;
+            }
+
+            .button-disabled {
+                background-color: #4b5563;
+                color: #9ca3af;
+                cursor: not-allowed;
+            }
+
+            .content {
+                flex: 1;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+                grid-auto-rows: minmax(300px, 1fr);
+                min-height: 0;
+            }
+
+            .editor-panel {
+                min-width: 0;
+                min-height: 0;
+                padding-top: 5px;
+            }
+
+            .output-panel {
+                min-width: 0;
+                min-height: 0;
+                border-left: 1px solid #3e3e3e;
+                display: flex;
+                flex-direction: column;
+                background-color: #0a0a0a;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .output-header {
+                padding: 8px 12px;
+                background-color: #2d2d2d;
+                border-bottom: 1px solid #3e3e3e;
+                flex-shrink: 0;
+            }
+
+            .output-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #d1d5db;
+            }
+
+            .output-content {
+                flex: 1;
+                overflow-y: auto;
+                overflow-x: auto;
+                padding: 12px;
+                min-height: 0;
+                position: relative;
+            }
+
+            .output-text {
+                font-size: 14px;
+                color: #f3f4f6;
+                font-family: monospace;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <img
+                    src="python-logo.svg"
+                    alt="Python logo of two snakes"
+                    height="29px"
+                />
+                <button id="run-button" class="button button-disabled" disabled>
+                    Loading...
+                </button>
+            </div>
+
+            <div class="content">
+                <div class="editor-panel">
+                    <div id="editor" style="height: 100%"></div>
+                </div>
+
+                <div class="output-panel">
+                    <div class="output-header">
+                        <h2 class="output-title">Output</h2>
+                    </div>
+                    <div class="output-content">
+                        <pre class="output-text" id="output">Loading...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.54.0/min/vs/loader.js"></script>
+        <script>
+            let editor;
+            let worker;
+            let pyodideReady = false;
+            let isRunning = false;
+
+            const runButton = document.getElementById("run-button");
+            const outputElement = document.getElementById("output");
+
+            function getDecodedIdFromHash() {
+                const hash = window.location.hash.substring(1);
+
+                if (!hash) return "# Write code here";
+
+                const encodedId = hash.split("=")[1];
+
+                if (!encodedId) return "# Write code here";
+
+                try {
+                    return decodeUrlSafeBase64(encodedId);
+                } catch (e) {
+                    console.error("Failed to decode:", e);
+                    return "# Failed to decode";
+                }
+            }
+
+            function decodeUrlSafeBase64(str) {
+                // Convert URL-safe to standard base64
+                str = str.replace(/-/g, "+").replace(/_/g, "/");
+
+                // Add padding
+                while (str.length % 4) str += "=";
+
+                // Decode to bytes and convert to UTF-8
+                const bytes = Uint8Array.from(atob(str), (c) =>
+                    c.charCodeAt(0),
+                );
+                return new TextDecoder().decode(bytes);
+            }
+
+            const initial_code = getDecodedIdFromHash();
+
+            // Initialize Monaco Editor
+            require.config({
+                paths: {
+                    vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.54.0/min/vs",
+                },
+            });
+
+            require(["vs/editor/editor.main"], function () {
+                editor = monaco.editor.create(
+                    document.getElementById("editor"),
+                    {
+                        value: initial_code,
+                        language: "python",
+                        theme: "vs",
+                        fontSize: 14,
+                        minimap: { enabled: false },
+                        automaticLayout: true,
+                        scrollBeyondLastLine: false,
+                    },
+                );
+            });
+
+            // Handle window resize
+            window.addEventListener("resize", () => {
+                if (editor) {
+                    editor.layout();
+                }
+            });
+
+            // Get URL Parameter to check for micropip
+            const params = new URLSearchParams(document.location.search);
+            const loadMicropip = params.get("micropip") == "1" ? true : false;
+            const libs = params.getAll("lib");
+
+            // Configure worker settings
+            const workerSettings = {
+                loadMicropip,
+                libs,
+            };
+
+            // Initialize Web Worker
+            worker = new Worker("./pyodide-worker.js", { type: "module" });
+
+            // Send init message with settings
+            worker.postMessage({
+                type: "init",
+                settings: workerSettings,
+            });
+
+            worker.onmessage = (event) => {
+                const { type, output, error } = event.data;
+
+                switch (type) {
+                    case "ready":
+                        pyodideReady = true;
+                        updateButton();
+                        outputElement.textContent = `Ready to run Python`;
+                        break;
+
+                    case "success":
+                        outputElement.textContent = output;
+                        isRunning = false;
+                        updateButton();
+                        break;
+
+                    case "error":
+                        outputElement.textContent = `Error: ${error}`;
+                        isRunning = false;
+                        updateButton();
+                        break;
+                }
+            };
+
+            worker.onerror = (error) => {
+                outputElement.textContent = `Worker error: ${error.message || "Unknown error"}`;
+                pyodideReady = false;
+                isRunning = false;
+                updateButton();
+            };
+
+            // Update button state
+            function updateButton() {
+                if (isRunning) {
+                    runButton.textContent = "Running...";
+                    runButton.disabled = true;
+                    runButton.className = "button button-disabled";
+                } else if (pyodideReady) {
+                    runButton.textContent = "▶ Run Code";
+                    runButton.disabled = false;
+                    runButton.className = "button button-enabled";
+                } else {
+                    runButton.textContent = "Loading...";
+                    runButton.disabled = true;
+                    runButton.className = "button button-disabled";
+                }
+            }
+
+            // Run code
+            function runCode() {
+                if (!worker || !pyodideReady || isRunning) {
+                    return;
+                }
+
+                isRunning = true;
+                updateButton();
+                outputElement.textContent = "Running...";
+
+                const code = editor.getValue();
+                worker.postMessage({
+                    type: "run",
+                    code: code,
+                });
+            }
+
+            // Button click handler
+            runButton.addEventListener("click", runCode);
+        </script>
+    </body>
+</html>

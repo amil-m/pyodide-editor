@@ -1,0 +1,61 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Change to your default branch if different
+  workflow_dispatch: # Allows manual triggering
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  check-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for index.html
+        id: check_index
+        run: |
+          if [ -f "public/index.html" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "path=public" >> $GITHUB_OUTPUT
+            echo "✅ index.html found in public directory"
+          elif [ -f "index.html" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "path=." >> $GITHUB_OUTPUT
+            echo "✅ index.html found in root directory"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "❌ index.html not found in root or public directory"
+            exit 0
+          fi
+
+      - name: Setup Pages
+        if: steps.check_index.outputs.found == 'true'
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        if: steps.check_index.outputs.found == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.check_index.outputs.path }}
+
+      - name: Deploy to GitHub Pages
+        if: steps.check_index.outputs.found == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Output deployment URL
+        if: steps.check_index.outputs.found == 'true'
+        run: |
+          echo "🚀 Site deployed successfully!"
+          echo "🌐 URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
