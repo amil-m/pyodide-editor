@@ -35,9 +35,14 @@
             </div>
         </div>
 
-        <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.54.0/min/vs/loader.js"></script>
-        <script>
-            let editor;
+        <script type="module">
+            import {
+                EditorView,
+                basicSetup,
+            } from "https://esm.sh/codemirror@6.0.2";
+            import { python } from "https://esm.sh/@codemirror/lang-python@6.2.1";
+            //import { oneDark } from "https://esm.sh/@codemirror/theme-one-dark@6.1.3";
+
             let worker;
             let pyodideReady = false;
             let isRunning = false;
@@ -78,36 +83,11 @@
 
             const initial_code = getDecodedIdFromHash();
 
-            // Initialize Monaco Editor
-            require.config({
-                paths: {
-                    vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.54.0/min/vs",
-                },
-            });
-
-            require(["vs/editor/editor.main"], function () {
-                editor = monaco.editor.create(
-                    document.getElementById("editor"),
-                    {
-                        value: initial_code,
-                        language: "python",
-                        theme: "vs",
-                        fontSize: 14,
-                        minimap: { enabled: false },
-                        automaticLayout: true,
-                        scrollBeyondLastLine: false,
-                        glyphMargin: true,
-                        lineNumbersMinChars: 2,
-                        folding: false,
-                    },
-                );
-            });
-
-            // Handle window resize
-            window.addEventListener("resize", () => {
-                if (editor) {
-                    editor.layout();
-                }
+            // Initialise Codemirror
+            const editor = new EditorView({
+                doc: initial_code,
+                extensions: [basicSetup, python()],
+                parent: document.getElementById("editor"),
             });
 
             // Get URL Parameter to check for micropip
@@ -188,7 +168,7 @@
                 updateButton();
                 outputElement.textContent = "Running...";
 
-                const code = editor.getValue();
+                const code = editor.state.doc.toString();
                 worker.postMessage({
                     type: "run",
                     code: code,
