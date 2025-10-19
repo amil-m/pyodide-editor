@@ -100,7 +100,7 @@ body {
     flex: 1;
     overflow-y: auto;
     overflow-x: auto;
-    padding: 12px;
+    padding: 8px;
     min-height: 0;
     position: relative;
 }
@@ -114,6 +114,9 @@ body {
     margin: 0;
 }
 
+.cm-content {
+    padding: 8px 0px !important;
+}
 .cm-editor {
     height: 100%;
     font-size: 14px;
