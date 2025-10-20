@@ -40,7 +40,10 @@
                 EditorView,
                 minimalSetup,
             } from "https://esm.sh/codemirror@6.0.2";
-            import { highlightActiveLine } from "https://esm.sh/@codemirror/view@6.38.6";
+            import {
+                highlightActiveLine,
+                lineNumbers,
+            } from "https://esm.sh/@codemirror/view@6.38.6";
             import {
                 indentOnInput,
                 indentUnit,
@@ -97,6 +100,10 @@
                     indentUnit.of("    "),
                     bracketMatching(),
                     highlightActiveLine(),
+                    lineNumbers({
+                        formatNumber: (lineNo) =>
+                            String(lineNo).padStart(1, " "),
+                    }),
                 ],
                 parent: document.getElementById("editor"),
             });
