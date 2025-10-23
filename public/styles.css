@@ -61,11 +61,10 @@ body {
 }
 
 .content {
-    flex: 1;
+    flex: 1 1 0%;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     grid-auto-rows: minmax(300px, 1fr);
-    min-height: 0;
+    min-height: 0px;
 }
 
 .editor-panel {
@@ -112,6 +111,33 @@ body {
     white-space: pre-wrap;
     word-wrap: break-word;
     margin: 0;
+}
+
+.resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    transition: opacity 0.2s;
+    z-index: 1;
+}
+
+.resize-handle-vertical {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 8px;
+    width: auto;
+    cursor: row-resize;
+}
+
+.resize-handle:hover,
+.resize-handle-vertical:hover {
+    background-color: #3b82f6;
+    opacity: 0.5;
 }
 
 .cm-content {

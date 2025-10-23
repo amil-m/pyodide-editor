@@ -19,12 +19,18 @@
                 </button>
             </div>
 
-            <div class="content">
+            <div class="content" id="grid-container">
                 <div class="editor-panel">
                     <div id="editor" style="height: 100%"></div>
                 </div>
 
                 <div class="output-panel">
+                    <div class="resize-handle" id="resize-handle"></div>
+                    <div
+                        class="resize-handle-vertical"
+                        id="resize-handle-vertical"
+                        style="display: none"
+                    ></div>
                     <div class="output-header">
                         <h2 class="output-title">Output</h2>
                     </div>
@@ -199,6 +205,98 @@
 
             // Button click handler
             runButton.addEventListener("click", runCode);
+        </script>
+
+        <script>
+            const container = document.getElementById("grid-container");
+            const handle = document.getElementById("resize-handle");
+            const handleVertical = document.getElementById(
+                "resize-handle-vertical",
+            );
+
+            // Calculate 50% of container width/height on load
+            let col1Width = container.offsetWidth / 2;
+            let row1Height = container.offsetHeight / 2;
+            let isResizing = false;
+            let isMobile = window.innerWidth < 768;
+
+            // Set initial grid layout
+            function updateGrid() {
+                isMobile = window.innerWidth < 768;
+                if (isMobile) {
+                    container.style.gridTemplateColumns = "1fr";
+                    container.style.gridTemplateRows = `${row1Height}px 1fr`;
+                    handleVertical.style.display = "block";
+                } else {
+                    container.style.gridTemplateColumns = `${col1Width}px 1fr`;
+                    container.style.gridTemplateRows = "minmax(300px, 1fr)";
+                    handleVertical.style.display = "none";
+                }
+            }
+
+            updateGrid();
+
+            // Handle horizontal resize (desktop)
+            handle.addEventListener("mousedown", (e) => {
+                if (isMobile) return;
+                isResizing = true;
+                e.preventDefault();
+            });
+
+            // Handle vertical resize (mobile)
+            handleVertical.addEventListener("mousedown", (e) => {
+                if (!isMobile) return;
+                isResizing = true;
+                e.preventDefault();
+            });
+
+            document.addEventListener("mousemove", (e) => {
+                if (!isResizing) return;
+
+                const containerRect = container.getBoundingClientRect();
+
+                if (isMobile) {
+                    // Vertical resize
+                    const newHeight = e.clientY - containerRect.top;
+                    if (
+                        newHeight >= 200 &&
+                        newHeight <= containerRect.height - 200
+                    ) {
+                        row1Height = newHeight;
+                        updateGrid();
+                    }
+                } else {
+                    // Horizontal resize
+                    const newWidth = e.clientX - containerRect.left;
+                    if (
+                        newWidth >= 200 &&
+                        newWidth <= containerRect.width - 200
+                    ) {
+                        col1Width = newWidth;
+                        updateGrid();
+                    }
+                }
+            });
+
+            document.addEventListener("mouseup", () => {
+                isResizing = false;
+            });
+
+            // Handle window resize
+            window.addEventListener("resize", () => {
+                const wasMobile = isMobile;
+                isMobile = window.innerWidth < 768;
+
+                // Recalculate 50% when switching modes
+                if (wasMobile !== isMobile) {
+                    if (isMobile) {
+                        row1Height = container.offsetHeight / 2;
+                    } else {
+                        col1Width = container.offsetWidth / 2;
+                    }
+                }
+                updateGrid();
+            });
         </script>
     </body>
 </html>
