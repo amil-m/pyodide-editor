@@ -219,11 +219,17 @@
             let row1Height = container.offsetHeight / 2;
             let isResizing = false;
             let isMobile = window.innerWidth < 768;
+            const vertical_row_height = 0.6;
 
             // Set initial grid layout
             function updateGrid() {
                 isMobile = window.innerWidth < 768;
                 if (isMobile) {
+                    // Ensure we have the correct container height
+                    if (row1Height === 300) {
+                        row1Height =
+                            container.offsetHeight * vertical_row_height;
+                    }
                     container.style.gridTemplateColumns = "1fr";
                     container.style.gridTemplateRows = `${row1Height}px 1fr`;
                     handleVertical.style.display = "block";
@@ -234,7 +240,13 @@
                 }
             }
 
-            updateGrid();
+            // Update grid after DOM finishes loading
+            setTimeout(() => {
+                if (isMobile) {
+                    row1Height = container.offsetHeight * vertical_row_height;
+                }
+                updateGrid();
+            }, 0);
 
             // Handle horizontal resize (desktop)
             handle.addEventListener("mousedown", (e) => {
@@ -287,12 +299,19 @@
                 const wasMobile = isMobile;
                 isMobile = window.innerWidth < 768;
 
-                // Recalculate 50% when switching modes
+                // Recalculate when switching modes
                 if (wasMobile !== isMobile) {
                     if (isMobile) {
-                        row1Height = container.offsetHeight / 2;
+                        row1Height =
+                            container.offsetHeight * vertical_row_height;
                     } else {
                         col1Width = container.offsetWidth / 2;
+                    }
+                } else if (isMobile) {
+                    // If staying in mobile mode but height changed, ensure row1Height is valid
+                    const maxHeight = container.offsetHeight - 200; // Leave at least 200px for second item
+                    if (row1Height > maxHeight) {
+                        row1Height = maxHeight;
                     }
                 }
                 updateGrid();
