@@ -44,17 +44,10 @@
         <script type="module">
             import {
                 EditorView,
-                minimalSetup,
+                basicSetup,
             } from "https://esm.sh/codemirror@6.0.2";
-            import {
-                highlightActiveLine,
-                lineNumbers,
-            } from "https://esm.sh/@codemirror/view@6.38.6";
-            import {
-                indentOnInput,
-                indentUnit,
-                bracketMatching,
-            } from "https://esm.sh/@codemirror/language@6.11.3";
+            import { autocompletion } from "https://esm.sh/@codemirror/autocomplete@6.19.1";
+            import { lineNumbers } from "https://esm.sh/@codemirror/view@6.38.6";
             import { python } from "https://esm.sh/@codemirror/lang-python@6.2.1";
             //import { oneDark } from "https://esm.sh/@codemirror/theme-one-dark@6.1.3";
             import { githubLight } from "https://esm.sh/@uiw/codemirror-theme-github@4.25.2";
@@ -99,13 +92,10 @@
             const editor = new EditorView({
                 doc: initial_code,
                 extensions: [
-                    minimalSetup,
+                    basicSetup,
                     python(),
+                    autocompletion(),
                     githubLight,
-                    indentOnInput(),
-                    indentUnit.of("    "),
-                    bracketMatching(),
-                    highlightActiveLine(),
                     lineNumbers({
                         formatNumber: (lineNo) =>
                             String(lineNo).padStart(1, " "),
