@@ -232,10 +232,12 @@
                     }
                     container.style.gridTemplateColumns = "1fr";
                     container.style.gridTemplateRows = `${row1Height}px 1fr`;
+                    handle.style.display = "none";
                     handleVertical.style.display = "block";
                 } else {
                     container.style.gridTemplateColumns = `${col1Width}px 1fr`;
                     container.style.gridTemplateRows = "minmax(300px, 1fr)";
+                    handle.style.display = "block";
                     handleVertical.style.display = "none";
                 }
             }
