@@ -102,6 +102,7 @@ body {
     padding: 8px;
     min-height: 0;
     position: relative;
+    line-height: 1.4;
 }
 
 .output-text {
