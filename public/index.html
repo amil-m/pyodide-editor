@@ -236,12 +236,12 @@
             }
 
             // Update grid after DOM finishes loading
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 if (isMobile) {
                     row1Height = container.offsetHeight * vertical_row_height;
                 }
                 updateGrid();
-            }, 0);
+            });
 
             // Handle horizontal resize (desktop)
             handle.addEventListener("mousedown", (e) => {
