@@ -237,7 +237,7 @@
 
             // Update grid after DOM finishes loading
             updateGrid();
-            requestAnimationFrame(() => {
+            window.addEventListener("load", () => {
                 if (isMobile) {
                     row1Height = container.offsetHeight * vertical_row_height;
                 }
