@@ -236,20 +236,13 @@
             }
 
             // Update grid after DOM finishes loading
-            if (container.offsetHeight > 0) {
+            updateGrid();
+            setTimeout(() => {
                 if (isMobile) {
                     row1Height = container.offsetHeight * vertical_row_height;
                 }
                 updateGrid();
-            } else {
-                window.addEventListener("load", () => {
-                    if (isMobile) {
-                        row1Height =
-                            container.offsetHeight * vertical_row_height;
-                    }
-                    updateGrid();
-                });
-            }
+            }, 800);
 
             // Handle horizontal resize (desktop)
             handle.addEventListener("mousedown", (e) => {
