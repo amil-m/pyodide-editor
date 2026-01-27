@@ -8,10 +8,10 @@ let settings = {
 async function loadPyodideInstance() {
   try {
     const pyodideModule = await import(
-      "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.mjs"
+      "https://cdn.jsdelivr.net/pyodide/v0.29.2/full/pyodide.mjs"
     );
     pyodide = await pyodideModule.loadPyodide({
-      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/",
+      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.2/full/",
     });
 
     if (settings.loadMicropip) {
