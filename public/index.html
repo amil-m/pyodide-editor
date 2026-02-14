@@ -85,17 +85,61 @@
 
       const initial_code = getDecodedIdFromHash();
 
+      // Variables used by run code function
+      let pyodideReady = false;
+      let isRunning = false;
+      let worker;
+
+      // Update button state
+      function updateButton() {
+        if (isRunning) {
+          runButton.textContent = "Running...";
+          runButton.disabled = true;
+          runButton.className = "button button-disabled";
+        } else if (pyodideReady) {
+          runButton.textContent = "▶ Run Code";
+          runButton.disabled = false;
+          runButton.className = "button button-enabled";
+        } else {
+          runButton.textContent = "Loading...";
+          runButton.disabled = true;
+          runButton.className = "button button-disabled";
+        }
+      }
+
+      // Run code
+      function runCode() {
+        if (!worker || !pyodideReady || isRunning) return;
+        isRunning = true;
+        updateButton();
+        outputElement.textContent = "Running...";
+        const code = editor.state.doc.toString();
+        worker.postMessage({ type: "run", code });
+      }
+
+      // Button click handler
+      runButton.addEventListener("click", runCode);
+
       // Initialise Codemirror
       const editor = new EditorView({
         doc: initial_code,
         extensions: [
+          keymap.of([
+            {
+              key: "Shift-Enter",
+              run: () => {
+                runCode();
+                return true;
+              },
+            },
+            indentWithTab,
+          ]),
           basicSetup,
           python(),
           autocompletion(),
           githubLight,
           indentOnInput(),
           indentUnit.of("    "),
-          keymap.of([indentWithTab]),
           lineNumbers({
             formatNumber: (lineNo) => String(lineNo).padStart(1, " "),
           }),
@@ -115,11 +159,9 @@
       };
 
       // Initialize Web Worker
-      const worker = new Worker("./pyodide-worker.js", {
+      worker = new Worker("./pyodide-worker.js", {
         type: "module",
       });
-      let pyodideReady = false;
-      let isRunning = false;
 
       // Send init message with settings
       worker.postMessage({
@@ -159,43 +201,6 @@
         isRunning = false;
         updateButton();
       };
-
-      // Update button state
-      function updateButton() {
-        if (isRunning) {
-          runButton.textContent = "Running...";
-          runButton.disabled = true;
-          runButton.className = "button button-disabled";
-        } else if (pyodideReady) {
-          runButton.textContent = "▶ Run Code";
-          runButton.disabled = false;
-          runButton.className = "button button-enabled";
-        } else {
-          runButton.textContent = "Loading...";
-          runButton.disabled = true;
-          runButton.className = "button button-disabled";
-        }
-      }
-
-      // Run code
-      function runCode() {
-        if (!worker || !pyodideReady || isRunning) {
-          return;
-        }
-
-        isRunning = true;
-        updateButton();
-        outputElement.textContent = "Running...";
-
-        const code = editor.state.doc.toString();
-        worker.postMessage({
-          type: "run",
-          code: code,
-        });
-      }
-
-      // Button click handler
-      runButton.addEventListener("click", runCode);
     </script>
 
     <script>
