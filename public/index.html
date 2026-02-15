@@ -1,309 +1,359 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Python Editor</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <img
-          src="python-logo.svg"
-          alt="Python logo of two snakes"
-          height="29px"
-        />
-        <button id="run-button" class="button button-disabled" disabled>
-          Loading...
-        </button>
-      </div>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Python Editor</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <img
+                    src="python-logo.svg"
+                    alt="Python logo of two snakes"
+                    height="29px"
+                />
+                <button id="run-button" class="button button-disabled" disabled>
+                    Loading...
+                </button>
+            </div>
 
-      <div class="content" id="grid-container">
-        <div class="editor-panel">
-          <div id="editor" style="height: 100%"></div>
+            <div class="content" id="grid-container">
+                <div class="editor-panel">
+                    <div id="editor" style="height: 100%"></div>
+                </div>
+
+                <div class="output-panel">
+                    <div class="resize-handle" id="resize-handle"></div>
+                    <div
+                        class="resize-handle-vertical"
+                        id="resize-handle-vertical"
+                        style="display: none"
+                    ></div>
+                    <div class="output-content">
+                        <div id="output">
+                            <pre class="output-text" id="output-text">
+Loading...</pre
+                            >
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="output-panel">
-          <div class="resize-handle" id="resize-handle"></div>
-          <div
-            class="resize-handle-vertical"
-            id="resize-handle-vertical"
-            style="display: none"
-          ></div>
-          <div class="output-content">
-            <pre class="output-text" id="output">Loading...</pre>
-          </div>
-        </div>
-      </div>
-    </div>
+        <script type="module">
+            import { EditorView, basicSetup } from "https://esm.sh/codemirror";
+            import { autocompletion } from "https://esm.sh/@codemirror/autocomplete";
+            import {
+                lineNumbers,
+                keymap,
+            } from "https://esm.sh/@codemirror/view";
+            import {
+                indentOnInput,
+                indentUnit,
+            } from "https://esm.sh/@codemirror/language";
+            import { indentWithTab } from "https://esm.sh/@codemirror/commands";
+            import { python } from "https://esm.sh/@codemirror/lang-python";
+            import { githubLight } from "https://esm.sh/@uiw/codemirror-theme-github";
 
-    <script type="module">
-      import { EditorView, basicSetup } from "https://esm.sh/codemirror";
-      import { autocompletion } from "https://esm.sh/@codemirror/autocomplete";
-      import { lineNumbers, keymap } from "https://esm.sh/@codemirror/view";
-      import {
-        indentOnInput,
-        indentUnit,
-      } from "https://esm.sh/@codemirror/language";
-      import { indentWithTab } from "https://esm.sh/@codemirror/commands";
-      import { python } from "https://esm.sh/@codemirror/lang-python";
-      import { githubLight } from "https://esm.sh/@uiw/codemirror-theme-github";
-      //import { oneDark } from "https://esm.sh/@codemirror/theme-one-dark@6.1.3";
+            const runButton = document.getElementById("run-button");
+            const outputElement = document.getElementById("output");
+            const outputText = document.getElementById("output-text");
 
-      const runButton = document.getElementById("run-button");
-      const outputElement = document.getElementById("output");
+            function getDecodedIdFromHash() {
+                const hash = window.location.hash.substring(1);
 
-      function getDecodedIdFromHash() {
-        const hash = window.location.hash.substring(1);
+                if (!hash) return "";
 
-        if (!hash) return "# Write code here";
+                const encodedId = hash.split("=")[1];
 
-        const encodedId = hash.split("=")[1];
+                if (!encodedId) return "";
 
-        if (!encodedId) return "# Write code here";
+                try {
+                    return decodeUrlSafeBase64(encodedId);
+                } catch (e) {
+                    console.error("Failed to decode:", e);
+                    return "# Failed to decode";
+                }
+            }
 
-        try {
-          return decodeUrlSafeBase64(encodedId);
-        } catch (e) {
-          console.error("Failed to decode:", e);
-          return "# Failed to decode";
-        }
-      }
+            function decodeUrlSafeBase64(str) {
+                str = str.replace(/-/g, "+").replace(/_/g, "/");
+                while (str.length % 4) str += "=";
+                const bytes = Uint8Array.from(atob(str), (c) =>
+                    c.charCodeAt(0),
+                );
+                return new TextDecoder().decode(bytes);
+            }
 
-      function decodeUrlSafeBase64(str) {
-        // Convert URL-safe to standard base64
-        str = str.replace(/-/g, "+").replace(/_/g, "/");
+            const initial_code = getDecodedIdFromHash();
 
-        // Add padding
-        while (str.length % 4) str += "=";
+            let pyodideReady = false;
+            let isRunning = false;
+            let worker;
 
-        // Decode to bytes and convert to UTF-8
-        const bytes = Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
-        return new TextDecoder().decode(bytes);
-      }
+            function updateButton() {
+                if (isRunning) {
+                    runButton.textContent = "Running...";
+                    runButton.disabled = true;
+                    runButton.className = "button button-disabled";
+                } else if (pyodideReady) {
+                    runButton.textContent = "▶ Run Code";
+                    runButton.disabled = false;
+                    runButton.className = "button button-enabled";
+                } else {
+                    runButton.textContent = "Loading...";
+                    runButton.disabled = true;
+                    runButton.className = "button button-disabled";
+                }
+            }
 
-      const initial_code = getDecodedIdFromHash();
+            // Clear all output (text, plots, errors) except the base outputText element
+            function clearOutput() {
+                while (outputElement.lastChild !== outputText) {
+                    outputElement.removeChild(outputElement.lastChild);
+                }
+                outputText.textContent = "";
+            }
 
-      // Variables used by run code function
-      let pyodideReady = false;
-      let isRunning = false;
-      let worker;
+            function runCode() {
+                if (!worker || !pyodideReady || isRunning) return;
+                isRunning = true;
+                updateButton();
+                clearOutput();
+                outputText.textContent = "Running...";
+                const code = editor.state.doc.toString();
+                worker.postMessage({ type: "run", code });
+            }
 
-      // Update button state
-      function updateButton() {
-        if (isRunning) {
-          runButton.textContent = "Running...";
-          runButton.disabled = true;
-          runButton.className = "button button-disabled";
-        } else if (pyodideReady) {
-          runButton.textContent = "▶ Run Code";
-          runButton.disabled = false;
-          runButton.className = "button button-enabled";
-        } else {
-          runButton.textContent = "Loading...";
-          runButton.disabled = true;
-          runButton.className = "button button-disabled";
-        }
-      }
+            runButton.addEventListener("click", runCode);
 
-      // Run code
-      function runCode() {
-        if (!worker || !pyodideReady || isRunning) return;
-        isRunning = true;
-        updateButton();
-        outputElement.textContent = "Running...";
-        const code = editor.state.doc.toString();
-        worker.postMessage({ type: "run", code });
-      }
+            const editor = new EditorView({
+                doc: initial_code,
+                extensions: [
+                    keymap.of([
+                        {
+                            key: "Shift-Enter",
+                            run: () => {
+                                runCode();
+                                return true;
+                            },
+                        },
+                        indentWithTab,
+                    ]),
+                    basicSetup,
+                    python(),
+                    autocompletion(),
+                    githubLight,
+                    indentOnInput(),
+                    indentUnit.of("    "),
+                    lineNumbers({
+                        formatNumber: (lineNo) =>
+                            String(lineNo).padStart(1, " "),
+                    }),
+                ],
+                parent: document.getElementById("editor"),
+            });
 
-      // Button click handler
-      runButton.addEventListener("click", runCode);
+            const params = new URLSearchParams(document.location.search);
+            const loadMicropip = params.get("micropip") == "1" ? true : false;
+            const libs = params.getAll("lib");
 
-      // Initialise Codemirror
-      const editor = new EditorView({
-        doc: initial_code,
-        extensions: [
-          keymap.of([
-            {
-              key: "Shift-Enter",
-              run: () => {
-                runCode();
-                return true;
-              },
-            },
-            indentWithTab,
-          ]),
-          basicSetup,
-          python(),
-          autocompletion(),
-          githubLight,
-          indentOnInput(),
-          indentUnit.of("    "),
-          lineNumbers({
-            formatNumber: (lineNo) => String(lineNo).padStart(1, " "),
-          }),
-        ],
-        parent: document.getElementById("editor"),
-      });
+            const workerSettings = {
+                loadMicropip,
+                libs,
+            };
 
-      // Get URL Parameter to check for micropip
-      const params = new URLSearchParams(document.location.search);
-      const loadMicropip = params.get("micropip") == "1" ? true : false;
-      const libs = params.getAll("lib");
+            worker = new Worker("./pyodide-worker.js", {
+                type: "module",
+            });
 
-      // Configure worker settings
-      const workerSettings = {
-        loadMicropip,
-        libs,
-      };
+            worker.postMessage({
+                type: "init",
+                settings: workerSettings,
+            });
 
-      // Initialize Web Worker
-      worker = new Worker("./pyodide-worker.js", {
-        type: "module",
-      });
+            worker.onmessage = (event) => {
+                const { type, kind, content, error } = event.data;
 
-      // Send init message with settings
-      worker.postMessage({
-        type: "init",
-        settings: workerSettings,
-      });
+                switch (type) {
+                    case "ready":
+                        pyodideReady = true;
+                        updateButton();
+                        outputText.textContent = "Ready to run Python";
+                        break;
 
-      worker.onmessage = (event) => {
-        const { type, output, error } = event.data;
+                    case "output":
+                        // First output clears the "Running..." text
+                        if (outputText.textContent === "Running...") {
+                            outputText.textContent = "";
+                        }
 
-        switch (type) {
-          case "ready":
-            pyodideReady = true;
-            updateButton();
-            outputElement.textContent = `Ready to run Python`;
-            break;
+                        if (kind === "text" || kind === "error") {
+                            // Append to the last <pre> if it's the same kind, otherwise create new
+                            const last = outputElement.lastElementChild;
+                            const cls =
+                                kind === "error"
+                                    ? "output-text output-error"
+                                    : "output-text";
+                            if (
+                                last &&
+                                last.tagName === "PRE" &&
+                                last.className === cls
+                            ) {
+                                last.textContent += content;
+                            } else {
+                                const pre = document.createElement("pre");
+                                pre.className = cls;
+                                pre.textContent = content;
+                                outputElement.appendChild(pre);
+                            }
+                        } else if (kind === "image") {
+                            const wrapper = document.createElement("div");
+                            wrapper.className = "plot-output";
+                            const img = document.createElement("img");
+                            img.src = "data:image/png;base64," + content;
+                            img.alt = "matplotlib plot";
+                            wrapper.appendChild(img);
+                            outputElement.appendChild(wrapper);
+                        }
+                        break;
 
-          case "success":
-            outputElement.textContent = output;
-            isRunning = false;
-            updateButton();
-            break;
+                    case "done":
+                        // If no output was posted at all, show a default message
+                        if (outputText.textContent === "Running...") {
+                            outputText.textContent =
+                                "Code executed successfully (no output)";
+                        }
+                        isRunning = false;
+                        updateButton();
+                        break;
 
-          case "error":
-            outputElement.textContent = `Error: ${error}`;
-            isRunning = false;
-            updateButton();
-            break;
-        }
-      };
+                    case "error":
+                        if (outputText.textContent === "Running...") {
+                            outputText.textContent = "";
+                        }
+                        const errPre = document.createElement("pre");
+                        errPre.className = "output-text output-error";
+                        errPre.textContent = `Error: ${error}`;
+                        outputElement.appendChild(errPre);
+                        isRunning = false;
+                        updateButton();
+                        break;
+                }
+            };
 
-      worker.onerror = (error) => {
-        outputElement.textContent = `Worker error: ${
-          error.message || "Unknown error"
-        }`;
-        pyodideReady = false;
-        isRunning = false;
-        updateButton();
-      };
-    </script>
+            worker.onerror = (error) => {
+                outputText.textContent = `Worker error: ${
+                    error.message || "Unknown error"
+                }`;
+                pyodideReady = false;
+                isRunning = false;
+                updateButton();
+            };
+        </script>
 
-    <script>
-      const container = document.getElementById("grid-container");
-      const handle = document.getElementById("resize-handle");
-      const handleVertical = document.getElementById("resize-handle-vertical");
+        <script>
+            const container = document.getElementById("grid-container");
+            const handle = document.getElementById("resize-handle");
+            const handleVertical = document.getElementById(
+                "resize-handle-vertical",
+            );
 
-      // Calculate 50% of container width/height on load
-      let col1Width = container.offsetWidth / 2;
-      let row1Height = container.offsetHeight / 2;
-      let isResizing = false;
-      let isMobile = window.innerWidth < 768;
-      const vertical_row_height = 0.6;
+            let col1Width = container.offsetWidth / 2;
+            let row1Height = container.offsetHeight / 2;
+            let isResizing = false;
+            let isMobile = window.innerWidth < 768;
+            const vertical_row_height = 0.6;
 
-      // Set initial grid layout
-      function updateGrid() {
-        isMobile = window.innerWidth < 768;
-        if (isMobile) {
-          // Ensure we have the correct container height
-          if (row1Height === 300) {
-            row1Height = container.offsetHeight * vertical_row_height;
-          }
-          container.style.gridTemplateColumns = "1fr";
-          container.style.gridTemplateRows = `${row1Height}px 1fr`;
-          handle.style.display = "none";
-          handleVertical.style.display = "block";
-        } else {
-          container.style.gridTemplateColumns = `${col1Width}px 1fr`;
-          container.style.gridTemplateRows = "minmax(300px, 1fr)";
-          handle.style.display = "block";
-          handleVertical.style.display = "none";
-        }
-      }
+            function updateGrid() {
+                isMobile = window.innerWidth < 768;
+                if (isMobile) {
+                    if (row1Height === 300) {
+                        row1Height =
+                            container.offsetHeight * vertical_row_height;
+                    }
+                    container.style.gridTemplateColumns = "1fr";
+                    container.style.gridTemplateRows = `${row1Height}px 1fr`;
+                    handle.style.display = "none";
+                    handleVertical.style.display = "block";
+                } else {
+                    container.style.gridTemplateColumns = `${col1Width}px 1fr`;
+                    container.style.gridTemplateRows = "minmax(300px, 1fr)";
+                    handle.style.display = "block";
+                    handleVertical.style.display = "none";
+                }
+            }
 
-      // Update grid after DOM finishes loading
-      setTimeout(() => {
-        if (isMobile) {
-          row1Height = container.offsetHeight * vertical_row_height;
-        }
-        updateGrid();
-      }, 500);
+            setTimeout(() => {
+                if (isMobile) {
+                    row1Height = container.offsetHeight * vertical_row_height;
+                }
+                updateGrid();
+            }, 500);
 
-      // Handle horizontal resize (desktop)
-      handle.addEventListener("mousedown", (e) => {
-        if (isMobile) return;
-        isResizing = true;
-        e.preventDefault();
-      });
+            handle.addEventListener("mousedown", (e) => {
+                if (isMobile) return;
+                isResizing = true;
+                e.preventDefault();
+            });
 
-      // Handle vertical resize (mobile)
-      handleVertical.addEventListener("mousedown", (e) => {
-        if (!isMobile) return;
-        isResizing = true;
-        e.preventDefault();
-      });
+            handleVertical.addEventListener("mousedown", (e) => {
+                if (!isMobile) return;
+                isResizing = true;
+                e.preventDefault();
+            });
 
-      document.addEventListener("mousemove", (e) => {
-        if (!isResizing) return;
+            document.addEventListener("mousemove", (e) => {
+                if (!isResizing) return;
 
-        const containerRect = container.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
 
-        if (isMobile) {
-          // Vertical resize
-          const newHeight = e.clientY - containerRect.top;
-          if (newHeight >= 200 && newHeight <= containerRect.height - 200) {
-            row1Height = newHeight;
-            updateGrid();
-          }
-        } else {
-          // Horizontal resize
-          const newWidth = e.clientX - containerRect.left;
-          if (newWidth >= 200 && newWidth <= containerRect.width - 200) {
-            col1Width = newWidth;
-            updateGrid();
-          }
-        }
-      });
+                if (isMobile) {
+                    const newHeight = e.clientY - containerRect.top;
+                    if (
+                        newHeight >= 200 &&
+                        newHeight <= containerRect.height - 200
+                    ) {
+                        row1Height = newHeight;
+                        updateGrid();
+                    }
+                } else {
+                    const newWidth = e.clientX - containerRect.left;
+                    if (
+                        newWidth >= 200 &&
+                        newWidth <= containerRect.width - 200
+                    ) {
+                        col1Width = newWidth;
+                        updateGrid();
+                    }
+                }
+            });
 
-      document.addEventListener("mouseup", () => {
-        isResizing = false;
-      });
+            document.addEventListener("mouseup", () => {
+                isResizing = false;
+            });
 
-      // Handle window resize
-      window.addEventListener("resize", () => {
-        const wasMobile = isMobile;
-        isMobile = window.innerWidth < 768;
+            window.addEventListener("resize", () => {
+                const wasMobile = isMobile;
+                isMobile = window.innerWidth < 768;
 
-        // Recalculate when switching modes
-        if (wasMobile !== isMobile) {
-          if (isMobile) {
-            row1Height = container.offsetHeight * vertical_row_height;
-          } else {
-            col1Width = container.offsetWidth / 2;
-          }
-        } else if (isMobile) {
-          // If staying in mobile mode but height changed, ensure row1Height is valid
-          const maxHeight = container.offsetHeight - 200; // Leave at least 200px for second item
-          if (row1Height > maxHeight) {
-            row1Height = maxHeight;
-          }
-        }
-        updateGrid();
-      });
-    </script>
-  </body>
+                if (wasMobile !== isMobile) {
+                    if (isMobile) {
+                        row1Height =
+                            container.offsetHeight * vertical_row_height;
+                    } else {
+                        col1Width = container.offsetWidth / 2;
+                    }
+                } else if (isMobile) {
+                    const maxHeight = container.offsetHeight - 200;
+                    if (row1Height > maxHeight) {
+                        row1Height = maxHeight;
+                    }
+                }
+                updateGrid();
+            });
+        </script>
+    </body>
 </html>
