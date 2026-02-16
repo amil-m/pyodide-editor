@@ -142,6 +142,10 @@ sys.stdout = StringIO()`;
 
     await pyodide.runPythonAsync(init_code);
     pyodide.runPython(DISPLAY_SETUP);
+    // Baseline keys to reset when re-running code
+    pyodide.runPython(
+      "_baseline_keys = set(globals().keys()) | {'_baseline_keys'}",
+    );
 
     self.postMessage({ type: "ready" });
   } catch (error) {
@@ -200,6 +204,13 @@ self.onmessage = async (event) => {
       break;
 
     case "run":
+      if (!pyodide) break;
+      pyodide.runPython(`
+for _k in list(globals()):
+    if _k not in _baseline_keys:
+        del globals()[_k]
+_k = None
+`);
       await runPython(code);
       break;
   }
