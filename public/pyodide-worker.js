@@ -119,9 +119,9 @@ function injectPltPatch(code) {
 async function loadPyodideInstance() {
   try {
     const pyodideModule =
-      await import("https://cdn.jsdelivr.net/pyodide/v0.29.2/full/pyodide.mjs");
+      await import("https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.mjs");
     pyodide = await pyodideModule.loadPyodide({
-      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.2/full/",
+      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.3/full/",
     });
 
     if (settings.loadMicropip) {
