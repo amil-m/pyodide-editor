@@ -255,105 +255,86 @@ Loading...</pre
         </script>
 
         <script>
-            const container = document.getElementById("grid-container");
-            const handle = document.getElementById("resize-handle");
-            const handleVertical = document.getElementById(
-                "resize-handle-vertical",
-            );
+        const container = document.getElementById("grid-container");
+        const handle = document.getElementById("resize-handle");
+        const handleVertical = document.getElementById(
+            "resize-handle-vertical",
+        );
 
-            let col1Width = container.offsetWidth / 2;
-            let row1Height = container.offsetHeight / 2;
-            let isResizing = false;
-            let isMobile = window.innerWidth < 768;
-            const vertical_row_height = 0.6;
+        const MOBILE_BREAKPOINT = 768;
+        const MIN_PANEL = 100; // smallest a panel can be dragged to, in px (0 = can fully collapse)
 
-            function updateGrid() {
-                isMobile = window.innerWidth < 768;
-                if (isMobile) {
-                    if (row1Height === 300) {
-                        row1Height =
-                            container.offsetHeight * vertical_row_height;
-                    }
-                    container.style.gridTemplateColumns = "1fr";
-                    container.style.gridTemplateRows = `${row1Height}px 1fr`;
-                    handle.style.display = "none";
-                    handleVertical.style.display = "block";
-                } else {
-                    container.style.gridTemplateColumns = `${col1Width}px 1fr`;
-                    container.style.gridTemplateRows = "minmax(300px, 1fr)";
-                    handle.style.display = "block";
-                    handleVertical.style.display = "none";
-                }
+        // Store the split as a fraction of the container, not as pixels,
+        // so it scales automatically when the window changes size.
+        let colRatio = 0.5; // desktop: editor width / container width
+        let rowRatio = 0.6; // mobile: editor height / container height
+        let isResizing = false;
+        let isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+
+        const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+
+        function updateGrid() {
+            isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+            if (isMobile) {
+                container.style.gridTemplateColumns = "minmax(0, 1fr)";
+                container.style.gridTemplateRows = `minmax(0, ${rowRatio * 100}%) minmax(0, 1fr)`;
+                handle.style.display = "none";
+                handleVertical.style.display = "block";
+            } else {
+                container.style.gridTemplateColumns = `minmax(0, ${colRatio * 100}%) minmax(0, 1fr)`;
+                container.style.gridTemplateRows = "minmax(0, 1fr)";
+                handle.style.display = "block";
+                handleVertical.style.display = "none";
             }
+        }
 
-            setTimeout(() => {
-                if (isMobile) {
-                    row1Height = container.offsetHeight * vertical_row_height;
-                }
-                updateGrid();
-            }, 500);
+        function startResize(e) {
+            isResizing = true;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            document.body.style.userSelect = "none";
+            document.body.style.cursor = isMobile ? "row-resize" : "col-resize";
+            e.preventDefault();
+        }
 
-            handle.addEventListener("mousedown", (e) => {
-                if (isMobile) return;
-                isResizing = true;
-                e.preventDefault();
-            });
+        function stopResize() {
+            if (!isResizing) return;
+            isResizing = false;
+            document.body.style.userSelect = "";
+            document.body.style.cursor = "";
+        }
 
-            handleVertical.addEventListener("mousedown", (e) => {
-                if (!isMobile) return;
-                isResizing = true;
-                e.preventDefault();
-            });
+        // Pointer events cover mouse, touch and pen
+        handle.addEventListener("pointerdown", (e) => {
+            if (!isMobile) startResize(e);
+        });
 
-            document.addEventListener("mousemove", (e) => {
-                if (!isResizing) return;
+        handleVertical.addEventListener("pointerdown", (e) => {
+            if (isMobile) startResize(e);
+        });
 
-                const containerRect = container.getBoundingClientRect();
+        document.addEventListener("pointermove", (e) => {
+            if (!isResizing) return;
 
-                if (isMobile) {
-                    const newHeight = e.clientY - containerRect.top;
-                    if (
-                        newHeight >= 200 &&
-                        newHeight <= containerRect.height - 200
-                    ) {
-                        row1Height = newHeight;
-                        updateGrid();
-                    }
-                } else {
-                    const newWidth = e.clientX - containerRect.left;
-                    if (
-                        newWidth >= 200 &&
-                        newWidth <= containerRect.width - 200
-                    ) {
-                        col1Width = newWidth;
-                        updateGrid();
-                    }
-                }
-            });
+            const rect = container.getBoundingClientRect();
 
-            document.addEventListener("mouseup", () => {
-                isResizing = false;
-            });
+            if (isMobile) {
+                const min = Math.min(MIN_PANEL, rect.height / 2);
+                const h = clamp(e.clientY - rect.top, min, rect.height - min);
+                rowRatio = h / rect.height;
+            } else {
+                const min = Math.min(MIN_PANEL, rect.width / 2);
+                const w = clamp(e.clientX - rect.left, min, rect.width - min);
+                colRatio = w / rect.width;
+            }
+            updateGrid();
+        });
 
-            window.addEventListener("resize", () => {
-                const wasMobile = isMobile;
-                isMobile = window.innerWidth < 768;
+        document.addEventListener("pointerup", stopResize);
+        document.addEventListener("pointercancel", stopResize);
 
-                if (wasMobile !== isMobile) {
-                    if (isMobile) {
-                        row1Height =
-                            container.offsetHeight * vertical_row_height;
-                    } else {
-                        col1Width = container.offsetWidth / 2;
-                    }
-                } else if (isMobile) {
-                    const maxHeight = container.offsetHeight - 200;
-                    if (row1Height > maxHeight) {
-                        row1Height = maxHeight;
-                    }
-                }
-                updateGrid();
-            });
+        window.addEventListener("resize", updateGrid);
+
+        updateGrid();
         </script>
     </body>
 </html>
