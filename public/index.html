@@ -55,7 +55,11 @@ Loading...</pre
             } from "https://esm.sh/@codemirror/language";
             import { indentWithTab } from "https://esm.sh/@codemirror/commands";
             import { python } from "https://esm.sh/@codemirror/lang-python";
-            import { githubLight } from "https://esm.sh/@uiw/codemirror-theme-github";
+            import { Compartment } from "https://esm.sh/@codemirror/state";
+            import {
+                githubLight,
+                githubDark,
+            } from "https://esm.sh/@uiw/codemirror-theme-github";
 
             const runButton = document.getElementById("run-button");
             const outputElement = document.getElementById("output");
@@ -129,6 +133,11 @@ Loading...</pre
 
             runButton.addEventListener("click", runCode);
 
+            const themeCompartment = new Compartment();
+            const prefersDark = window.matchMedia(
+                "(prefers-color-scheme: dark)",
+            );
+
             const editor = new EditorView({
                 doc: initial_code,
                 extensions: [
@@ -145,7 +154,9 @@ Loading...</pre
                     basicSetup,
                     python(),
                     autocompletion(),
-                    githubLight,
+                    themeCompartment.of(
+                        prefersDark.matches ? githubDark : githubLight,
+                    ),
                     indentOnInput(),
                     indentUnit.of("    "),
                     lineNumbers({
@@ -154,6 +165,14 @@ Loading...</pre
                     }),
                 ],
                 parent: document.getElementById("editor"),
+            });
+
+            prefersDark.addEventListener("change", (event) => {
+                editor.dispatch({
+                    effects: themeCompartment.reconfigure(
+                        event.matches ? githubDark : githubLight,
+                    ),
+                });
             });
 
             const params = new URLSearchParams(document.location.search);
