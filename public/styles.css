@@ -5,7 +5,8 @@
     --plot-bg: #ffffff;
     --border: rgb(221, 221, 221);
     --header-color: #191C20;
-    --run-button: #006D46;
+    --run-button: #00895A;
+    --run-button-hover: #007A50;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -16,7 +17,8 @@
         --plot-bg: #1f2428;
         --border: #30363d;
         --header-color: #191C20;
-        --run-button: #006D46;
+        --run-button: #007A50;
+        --run-button-hover: #006D46;
     }
 }
 
@@ -74,7 +76,7 @@ body {
 }
 
 .button-enabled:hover {
-    background-color: #15803d;
+    background-color: var(--run-button-hover);
 }
 
 .button-disabled {
