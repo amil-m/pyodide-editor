@@ -1,6 +1,6 @@
 :root {
     --bg: #ffffff;
-    --panel-bg: #F0F1F3;
+    --panel-bg: rgb(245, 245, 245);
     --text: #3e3e3e;
     --plot-bg: #ffffff;
     --border: rgb(221, 221, 221);
